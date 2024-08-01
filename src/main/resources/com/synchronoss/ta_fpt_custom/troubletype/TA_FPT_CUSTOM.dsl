@@ -1,0 +1,23 @@
+[condition][]xcb object=xcb : XOMContainerBean()
+[condition][]the {field} is populated=((new Populated()).isPopulated((xcb.xpath({field})).stringValue()))
+[condition][]the {field} is not populated=((new Populated()).isNotPopulated(xcb.xpath({field}).stringValue()))
+[condition][]the maximum length of {field} is {value}=((new LengthCheck()).checkMaximumlength(((xcb.xpath({field})).stringValue()),{value}))
+[condition][]the multiple field {field} of section {section} maximum value {value}= MultiMaxLengthCheck(xcb,{field},{section},{value})
+[condition][]it is not true that_the maximum length of {field} is {value}=(!((new LengthCheck()).checkMaximumlength(((xcb.xpath({field})).stringValue()),{value})))
+[condition][]Rule {ruleID} multiple times {field} in {section} is equal to {values}=(multiEquals(xcb,{ruleID},{section},{field},{values}))
+[condition][]Rule {ruleID} multiple times {field} in {section} maximum length value {value}=(moMaxLength(xcb,{ruleID},{section},{field},{value}))
+[condition][]the {field} do_not_matches_the pattern {pattern}=((new SpecialFormat()).isPatternNotMatches((xcb.xpath({field})).stringValue(),{pattern}))
+[condition][]the {field} is equal to values {values}=((new Equals()).isEqualToValues((xcb.xpath({field}).stringValue()),{values}))
+[condition][]Rule {ruleID} multiple times_the {pos} position of {field} in {section} is equal to values {values}=(PositionValueEqual(xcb,{ruleID},{section},{field},{pos},{values}))
+[consequence][]the rule {ruleId} with error code {errorCode} with message {errorMsg} for the field {field} of section {section}=logMultipleError(xcb,{ruleId},{section},{field},{errorCode},{errorMsg})
+[condition][]Rule {ruleID} multiple times {field} in {section} matches_the_pattern {pattern}=(multiplepatternmatches(xcb,{ruleID},{section},{field},{pattern}))
+[condition][]the {field} of section {section} segment value equal to values {values} for number {int} with delimiter {value}=SegmentValueEqualToValues(xcb,{field},{section},{values},{int},{value})
+[condition][]Evaluate=eval
+[condition][]always true=eval(true)
+[condition][]it is not true that_the {field} is equal to values {values}=(!((new Equals()).isEqualToValues((xcb.xpath({field}).stringValue()),{values})))
+[consequence][]the error code {errorCode} with message {errorMsg} for the field {xPath}=xcb.logError({errorCode},{errorMsg},{xPath})
+
+[condition][]Start Brace=(
+[condition][]End Brace=)
+[condition][]AND=&&
+[condition][]OR=||

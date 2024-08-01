@@ -1,0 +1,581 @@
+//created on: Mar 25, 2015
+package com.synchronoss.ta_fpt_custom.troubletype;
+
+import com.synchronoss.ruleserver.core.xpath.XOMContainerBean;
+import com.synchronoss.ruleserver.core.xpath.XOMAccessBean;
+import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.StringTokenizer;
+import com.synchronoss.brms.dresclasses.Populated;
+import com.synchronoss.brms.dresclasses.Equals;
+import com.synchronoss.brms.dresclasses.Contains;
+import com.synchronoss.brms.dresclasses.DatatypeCheck;
+import com.synchronoss.brms.dresclasses.SpaceCheck;
+import com.synchronoss.brms.dresclasses.LengthCheck;
+import com.synchronoss.brms.dresclasses.Position;
+import com.synchronoss.brms.dresclasses.TNFormat;
+import com.synchronoss.brms.dresclasses.RangeOfValues;
+import com.synchronoss.brms.dresclasses.DateCheck;
+import com.synchronoss.brms.dresclasses.Prohibited;
+import com.synchronoss.brms.dresclasses.DateFormatCheck;
+import com.synchronoss.brms.dresclasses.Required;
+import com.synchronoss.brms.dresclasses.CapitalLetterCheck;
+import com.synchronoss.brms.dresclasses.TimeFormatCheck;
+import com.synchronoss.brms.dresclasses.SpecialFormat;
+import com.synchronoss.brms.dresclasses.xpath.Occurence;
+import com.synchronoss.brms.dresclasses.xpath.XPathProcessor;
+
+
+expander FptTADSL.dsl
+
+  function void logMultipleError(XOMContainerBean xcb,String ruleid, String section, String field, String errorCode, String errorMessage)
+    {
+	
+	ArrayList errorListIndex = (ArrayList) (xcb.getErrorListIndexMap()).get(ruleid);
+	if (errorListIndex != null && errorListIndex.size() > 0)
+	{
+	    for (int i = 0; i < errorListIndex.size(); i++)
+	    {
+	    if(section.contains("[i]/"))
+	    {
+	    	ArrayList temp=new ArrayList();
+	    	temp=(ArrayList)errorListIndex.get(i);
+	    	String section1=null;
+			String section2=null;
+			String section12=null;
+			int pos1,pos2;
+			pos1=section.indexOf("[i]/");
+			pos2=section.lastIndexOf("[i]");
+			section1=section.substring(0,pos1);
+			section2=section.substring(pos1+4,pos2);
+			section12=section1 + "[" + temp.get(0) + "]/" + section2;
+			String xpath = section12 + "[" + temp.get(1) + "]/" + field;
+			xcb.logError(errorCode, errorMessage, xpath);
+	    }
+	    else
+	    {
+
+	    	int pos1;
+	    	String section1=null;
+	    	pos1=section.indexOf("[i]");
+			section1=section.substring(0,pos1);
+			String xpath = section1 + "[" + errorListIndex.get(i) + "]/" + field;
+	    	xcb.logError(errorCode, errorMessage, xpath);
+	    }
+	    }
+	}
+	(xcb.getErrorListIndexMap()).remove(ruleid);
+   }
+
+  function boolean compare(XOMContainerBean xcb,int compareType, String ruleid, String section, String field, String parameter, String val2, String position1, String position2)
+    {
+    	
+    	ArrayList errorListIndex = new ArrayList();
+    	ArrayList errorListIndexTemp1 = new ArrayList();
+    	ArrayList errorListIndexTemp2 = new ArrayList();
+    	int CT=compareType;
+    	String param=parameter;
+    	boolean finalFlag = false;
+    	if(section.contains("[i]/"))
+    	{
+    		String section1=null;
+    		String section2=null;
+    		String section12=null;
+    		int pos1,pos2;
+    		pos1=section.indexOf("[i]/");
+    		pos2=section.lastIndexOf("[i]");
+    		section1=section.substring(0,pos1);
+    		section2=section.substring(pos1+4,pos2);
+    		XOMAccessBean accessBean1 = xcb.xpath(section1);
+    		XOMContainerBean[] arr1;
+    		arr1 = accessBean1.nodeSet();
+    		XOMAccessBean accessBean2 =null;
+    		for (int i = 0; i < arr1.length; i++)
+    		{
+    			section12=section1 + "[" + (i + 1) + "]/" + section2;
+    			accessBean2 = xcb.xpath(section12);
+    			XOMContainerBean[] arr2;
+    			arr2 = accessBean2.nodeSet();
+    			for(int j = 0; j < arr2.length; j++)
+    			{
+    				boolean flag = false;
+    				XOMContainerBean xBean = arr2[j];
+    				
+    				String xpath = section12 + "[" + (j + 1) + "]/" + field;
+    				String content = xBean.xpath(xpath).stringValue();
+    				
+    				flag=MultiRules(CT,xpath,content,param,val2,position1,position2);
+	    
+	    
+    				if (flag)
+    				{
+    					ArrayList temp=new ArrayList();
+    					temp.add(i+1);
+    					temp.add(j+1);
+    					errorListIndex.add(temp);
+    					finalFlag = true;
+    				}
+    			}
+    			accessBean2 =null;
+		}
+	}
+	else
+	{
+		int pos1;
+		String section1=null;
+		section1=section.replace("[i]", "");
+		XOMAccessBean accessBean = xcb.xpath(section1);
+		XOMContainerBean[] arr;
+		arr = accessBean.nodeSet();
+		for (int i = 0; i < arr.length; i++)
+		{
+		    boolean flag = false;
+		    XOMContainerBean xBean = arr[i];
+		    
+		    String xpath = section1 + "[" + (i + 1) + "]/" + field;
+		    String content = xBean.xpath(xpath).stringValue();
+		    flag=MultiRules(CT,xpath,content,param,val2,position1,position2);
+			
+		    if (flag)
+		    {
+			errorListIndex.add(i + 1);
+			finalFlag = true;
+		    }
+		}
+	}
+	
+	
+	errorListIndexTemp1=(ArrayList)((xcb.getErrorListIndexMap()).get(ruleid));
+	
+	errorListIndexTemp2=(ArrayList)errorListIndex.clone();
+	
+	if(errorListIndexTemp1!=null)
+	{
+		if(errorListIndexTemp1.isEmpty())
+		{
+			errorListIndex=(ArrayList)errorListIndexTemp1.clone();
+		}
+		else
+		{
+			ArrayList errorListIndexTemp3 = new ArrayList();
+			for(int i = 0;i < errorListIndexTemp1.size();i++){
+				for(int j = 0;j < errorListIndexTemp2.size();j++){
+					if(errorListIndexTemp1.get(i).equals(errorListIndexTemp2.get(j))){
+						errorListIndexTemp3.add(errorListIndexTemp1.get(i));
+						
+					}
+				}
+					errorListIndex=(ArrayList)errorListIndexTemp3.clone();
+			}
+		}
+	}
+	
+	if (finalFlag)
+	{
+		(xcb.getErrorListIndexMap()).put(ruleid,errorListIndex);
+	}
+	return finalFlag;
+    }
+  function boolean MultiRules(int compareType, String xpath, String content, String parameter, String val2, String position1, String position2)
+    {
+     boolean flag=false;
+     	
+     switch (compareType)
+	    {
+	    case 1:
+		if((parameter != null) && ((new Equals()).isEqualToValues(content,parameter)))
+		{
+		    // log.debug("EQUALS");
+		    flag = true;
+		}
+		break;
+	    case 2:
+		if ((parameter != null) && (!((new LengthCheck()).checkMaximumlength(content,Integer.parseInt(parameter)))))
+		{
+		    // log.debug("LENGTH IS GREATER");
+		    flag = true;
+		}
+		break;
+	    case 3:
+	    	if((parameter == null) || (!(new Equals()).isEqualToValues(content,parameter)))
+		{
+		    // log.debug("CHARACTERS DOES NOT MATCH");
+		    flag = true;
+		}
+		break;
+	    case 4:if((new Populated()).isNotPopulated(content))
+		{
+		   // log.debug("FIELD NOT POPULATED");
+		    flag = true;
+		}
+		break;
+	    case 5:
+		if ((new Populated()).isPopulated(content))
+		{
+		   // log.debug("FIELD POPULATED");
+		    flag = true;
+		}
+		break;
+	    case 6:
+		if ((parameter != null) && (!((new DatatypeCheck()).checkAlphaSPSet(content,parameter))))
+		{
+			// log.debug("FIELD IS NOT ALPHA WITH SPECIAL CHARS");
+		    flag = true;
+		}
+		break;
+	    case 7:
+		if (!((new DatatypeCheck()).checkNumeric(content)))
+		{
+		    // log.debug("FIELD IS NOT NUMERIC");
+		    flag = true;
+		}
+		break;
+	    case 8:
+		if (!((new DatatypeCheck()).checkAlphaNumeric(content)))
+		{
+			    // log.debug("FIELD IS NOT ALPHANUMERIC");
+			  flag = true;
+		}
+		break;
+	    case 9:
+			if ((parameter != null) && (!((new LengthCheck()).checkLength(content,Integer.parseInt(parameter)))))
+			{
+				    // log.debug("FIELD LENGTH CHECK");
+				  flag = true;
+			}
+			break;
+	    case 10:
+	    	if ((parameter != null) && (!((new TNFormat()).tnFormatIs(content,parameter))))
+			{
+				    // log.debug("TELEPHONE NUM FORMAT");
+				  flag = true;
+			}
+			break;
+			case 11:
+			if (!((new DatatypeCheck()).checkAlpha(content)))
+			{
+				    // log.debug("FIELD IS NOT ALPHA");
+				  flag = true;
+			}
+			break;
+			
+	    case 12:
+			if ((parameter != null) && (!((new DatatypeCheck()).checkAlphaNumericSPSet(content,parameter))))
+			{
+				// log.debug("FIELD IS ALLOW ALPHANUM WITH SPECIAL CHARS");
+			    flag = true;
+			}
+			break;
+	    case 13:
+			if ((parameter != null) && (((new LengthCheck()).checkLength(content,Integer.parseInt(parameter)))))
+			{
+				    // log.debug("FIELD LENGTH CHECK");
+				  flag = true;
+			}
+			break;
+	    case 14:
+			if ((new DatatypeCheck()).checkAlphaNumeric(content))
+			{
+				    // log.debug("FIELD IS ALPHANUMERIC");
+				  flag = true;
+			}
+			break;
+	    case 15:
+			if ((new DatatypeCheck()).checkNumeric(content))
+			{
+			    // log.debug("FIELD IS NOT NUMERIC");
+			    flag = true;
+			}
+			break;
+	    case 16:
+			if ((new DatatypeCheck()).checkAlpha(content))
+			{
+				    // log.debug("FIELD IS ALPHA");
+				  flag = true;
+			}
+			break;
+	    case 17:
+			if((parameter != null) && ((new Equals()).isGreaterThan(content,Integer.parseInt(parameter))))
+		    {
+			    // log.debug("GREATER THAN");
+			    flag = true;
+			}
+			break;
+	    case 18:
+	    	if((parameter != null) && ((new Contains()).characterNotPreceededAndFollowedByNumeric(content,parameter)))
+		    {
+			    // log.debug("NUMBERS WITH SPECIAL CHAR");
+			    flag = true;
+			}
+			break;
+	    case 19:
+	    	if((parameter != null) && ((new Contains()).contains(content,parameter)))
+		    {
+			    // log.debug("CONTAINS CHAR");
+			    flag = true;
+			}
+			break;
+	    case 20:
+	    	if((parameter != null) && (content!="") && (!((new Contains()).characterFollowedByAlpha(content,parameter))))
+		    {
+			    // log.debug("CONTAINS CHAR FOLLOWED BY ALPHA");
+			    flag = true;
+			}
+			break;
+	    case 21:
+	    	if((parameter != null)&& (content!="") && ((new Contains()).characterPreceededAndFollowedByAlpha(content,parameter)))
+		    {
+			    // log.debug("CONTAINS CHAR PRECEEDED AND FOLLOWED BY ALPHA");
+			    flag = true;
+			}
+			break;
+	    case 22:
+	    	if((parameter != null)  && (content!="") && (!((new Contains()).characterPreceededAndFollowedByAlphaNumeric(content,parameter))))
+		    {
+			    // log.debug("CONTAINS CHAR PRECEEDED AND FOLLOWED BY ALPHANUM");
+			    flag = true;
+			}
+			break;
+	    case 23:
+	    	if((parameter != null) && (content!="") && (!((new Contains()).characterFollowedBySpace(content,parameter.charAt(0)))))
+		    {
+			    // log.debug("CONTAINS CHAR FOLLOWED BY SPACE");
+			    flag = true;
+			}
+			break;
+	    case 24:
+	    	if((new Contains()).checkSingleParanthesis(content))
+		    {
+			    // log.debug("CONTAINS SINGLE (");
+			    flag = true;
+			}
+			break;
+	    case 25:
+	    	if(!((new SpaceCheck()).isAmpersandprecspace(content)))
+		    {
+			    // log.debug("CONTAINS AMPERSAND AND SPACE");
+			    flag = true;
+			}
+			break;
+	    case 26:
+	    	if((new Contains()).doubleVirgleNotPreceededAndFollowedByAlphaNumeric(content))
+		    {
+			    // log.debug("CONTAINS VIRGLE NOT ALPHANUM ");
+			    flag = true;
+			}
+			break;
+	    case 27:
+	    		if(!((new Position()).positionOftagValueEqualToValues(Integer.parseInt(position1), content, parameter)))
+	    		{
+	    			
+					flag = true;
+	    		}
+	    		break;
+		    case 28:
+				if(!((new RangeOfValues()).twoFieldPositionInRange(Integer.parseInt(position1), Integer.parseInt(position2), content, Integer.parseInt(parameter), Integer.parseInt(val2))))
+				{
+				    flag = true;
+				}
+				break;
+		    case 29:
+					
+				if((new Position()).positionOftagValueEqualToValues(Integer.parseInt(position1), content, parameter))
+				{
+				    //System.out.println("Pos:"+Integer.parseInt(position1)+"\t Content:"+content+"\tvalue:"+parameter);
+					flag = true;
+				}
+				break;
+		    case 30:
+				if(!((new Position()).twoPositionValueofTagEqualToValues(Integer.parseInt(position1), Integer.parseInt(position2), content, parameter)))
+				{
+				    flag = true;
+				}
+				break;
+		    case 31:
+				if((new Position()).posToPosOfTagIsLessThanOrEqualToPosToPos(Integer.parseInt(position1), Integer.parseInt(position2), content, Integer.parseInt(parameter), Integer.parseInt(val2)))
+				{
+				    flag = true;
+				}
+				break;
+			case 32:
+			if ((parameter != null) && (!((new DatatypeCheck()).checkAlphaNumericWithOutSPSet(content,parameter))))
+			{
+				// log.debug("FIELD IS NOT ALPHANUM WITH SPECIAL CHARS");
+			    flag = true;
+			}
+			break;
+			case 33:
+			if ((parameter != null) && ((new SpecialFormat()).isPatternMatches(content,parameter)))
+			{
+				// log.debug("FIELD IS MATCHING THE PATTERN");
+			    flag = true;
+			}
+			break;
+			case 34:
+			if ((parameter != null) && ((new SpecialFormat()).isPatternNotMatches(content,parameter)))
+			{
+				// log.debug("FIELD IS NOT MATCHING THE PATTERN");
+			    flag = true;
+			}
+			break;
+			case 35:
+			if ((parameter != null) && (!((new SpecialFormat()).isPatternNotMatches(content,parameter))))
+			{
+				// log.debug("FIELD IS NOT MATCHING THE PATTERN");
+			    flag = true;
+			}
+			break;
+			case 36:
+			if ((parameter != null) && (((new DateCheck()).isLessThanOrEqualTo(content,parameter))))
+			{
+				
+			    flag = true;
+			}
+			break;
+			case 37:
+			if ((parameter != null) && (!((new DateFormatCheck()).dateCheck(content,parameter))))
+			{
+				
+			    flag = true;
+			}
+			break;
+			case 38:
+			if ((parameter != null) && (!((new DatatypeCheck()).checkRepeationOFSpecialCharacter(content,parameter))))
+			{
+				
+			    flag = true;
+			}
+			break;
+			case 39:
+	    	if((parameter != null) && (!(new Contains()).contains(content,parameter)))
+		    {
+			    // log.debug("CONTAINS CHAR");
+			    flag = true;
+			}			
+			case 40:
+	    	if((parameter == null) || ((new Equals()).isEqualToValues(content,parameter)))
+			{
+				// log.debug("CHARACTERS DOES NOT MATCH");
+				flag = true;
+			}
+			break;
+		default:
+
+    }
+   
+ 	return flag;
+    }
+
+ function boolean multiEquals(XOMContainerBean xcb, String ruleid, String section, String field, String valueToCompare) 
+    {
+	return compare(xcb, 1, ruleid, section, field, valueToCompare,null,null,null);
+    }
+  function boolean moMaxLength(XOMContainerBean xcb, String ruleid, String section, String field, String lenghtValue)
+    {
+	return compare(xcb, 2, ruleid, section, field, lenghtValue,null,null,null);
+    }
+function boolean multiplepatternmatches(XOMContainerBean xcb, String ruleid, String section, String field, String pattern)
+    {
+	return compare(xcb, 33, ruleid, section, field, pattern,null,null,null);
+    }
+function boolean PositionValueEqual(XOMContainerBean xcb, String ruleid, String section, String field, String pos,String valueToCompare)
+   {
+    	return compare(xcb,29, ruleid, section, field,  valueToCompare, null, pos, null);
+   }
+function boolean SegmentValueEqualToValues(XOMContainerBean xcb, String field, String section, String values, int segNo, String token)
+{
+		
+		boolean flag=false;
+		if (values == null) {
+			return false;
+		}
+		if (field == null) {
+		return false;
+		}
+		if (section == null) {
+		return false;
+		}
+		String completexml=xcb.getXmlInstance();
+		String occurenceCount=section+"/"+field;
+		String occurenceTypeCount=section+"/"+"Type";
+		XPathProcessor xPathProcessor=new XPathProcessor(completexml);
+		int occNum=xPathProcessor.getNumberOfOccurrence(occurenceCount);
+		int occTypNum=xPathProcessor.getNumberOfOccurrence(occurenceTypeCount);
+		ArrayList tempList1=xPathProcessor.getValue(occurenceCount);
+		ArrayList tempList2=xPathProcessor.getValue(occurenceTypeCount);
+		for(int i=0;i<occNum;i++)
+		{
+			String path = section+"["+i+1+"]"+"/"+field;
+			if(tempList1.get(i)!=null && tempList2.get(i)!=null)
+			{
+				String s1=tempList1.get(i).toString();
+				String s2=tempList2.get(i).toString();
+				StringTokenizer strTokens = new StringTokenizer(s1, token);
+				int count = 0;
+				while (strTokens.hasMoreTokens())
+				{
+					String segment = strTokens.nextToken();
+					count++;
+					if (count == segNo) 
+					{
+						try
+						{
+							int fieldValue = Integer.parseInt(s1);
+							s1= String.valueOf(fieldValue);
+						}
+						catch (NumberFormatException localNumberFormatException) {}finally
+						{
+							StringTokenizer strValues = new StringTokenizer(values, ",");
+							while (strValues.hasMoreTokens())
+							{
+								String ele = strValues.nextToken();
+								if (segment.equalsIgnoreCase(ele) && (s2.equalsIgnoreCase("serviceID")||s2.equalsIgnoreCase("serviceID214")))
+								{
+									return true;
+								}
+							}
+						}
+					}
+				}
+			}
+		}   
+		 return false;
+}
+
+function boolean MultiMaxLengthCheck(XOMContainerBean xcb, String field, String section, int value)
+{
+		boolean flag=false;
+		
+		if (field == null) {
+		return false;
+		}
+		if (section == null) {
+		return false;
+		}
+		String completexml=xcb.getXmlInstance();
+		String occurenceCount=section+"/"+field;
+		XPathProcessor xPathProcessor=new XPathProcessor(completexml);
+		int occNum=xPathProcessor.getNumberOfOccurrence(occurenceCount);
+		if(occNum>=1)
+		{		
+			ArrayList tempList1=xPathProcessor.getValue(occurenceCount);
+			for(Object t1 : tempList1)
+			{
+				String s1="";
+				if(t1 != null)
+				{
+					s1=t1.toString();
+					int valuelen = s1.length();
+					if(valuelen>value)
+					{
+						return true;
+					}
+				}
+			
+			}
+		}
+		return flag;
+}
+
+
+
